@@ -10,7 +10,7 @@ MyVector::MyVector(size_t size, ResizeStrategy resizeStrategy, float coef)
 {
 	_size = size;
 	_coef = coef;
-	_resStrategy = resizeStrategy;
+	_resize = resizeStrategy;
 	_capacity = sizeof(ValueType);
 	_data = new ValueType[_capacity];
 }
@@ -19,7 +19,7 @@ MyVector::MyVector(size_t size, ValueType value, ResizeStrategy resizeStrategy, 
 {
 	_size = size;
 	_coef = coef;
-	_resStrategy = resizeStrategy;
+	__resize = resizeStrategy;
 	_capacity = sizeof(ValueType);
 	_data = new ValueType[_capacity];
 	for (size_t i = 0; i < size; ++i) {
@@ -31,7 +31,7 @@ MyVector::MyVector(const MyVector& copy)
 {
 	_size = copy._size;
 	_coef = copy._coef;
-	_resStrategy = copy._resStrategy;
+	__resize = copy.__resize;
 	_capacity = copy._capacity;
 	_data = new ValueType[_capacity];
 	memcpy(this->_data, copy._data, this->_size * sizeof(ValueType));
@@ -48,7 +48,7 @@ MyVector& MyVector::operator=(const MyVector& copy)
 	_data = tempData;
 	_size = copy._size;
 	_coef = copy._coef;
-	_resStrategy = copy._resStrategy;
+	__resize = copy.__resizey;
 	_capacity = copy._capacity;
 
 	return *this;
@@ -58,7 +58,7 @@ MyVector::MyVector(MyVector&& moveVector) noexcept
 {
 	_size = moveVector._size;
 	_coef = moveVector._coef;
-	_resStrategy = moveVector._resStrategy;
+	__resize = moveVector.__resize;
 	_capacity = moveVector._capacity;
 	_data = new ValueType[_capacity];
 	memcpy(this->_data, moveVector._data, this->_size * sizeof(ValueType));
@@ -78,7 +78,7 @@ MyVector& MyVector::operator=(MyVector&& moveVector) noexcept
 	_data = moveVector._data;
 	_size = moveVector._size;
 	_coef = moveVector._coef;
-	_resStrategy = moveVector._resStrategy;
+	__resize = moveVector.__resize;
 	_capacity = moveVector._capacity;
 
 	moveVector._size = 0;
@@ -128,9 +128,9 @@ void MyVector::reserve(const size_t capacity)
 void MyVector::strategyReserve()
 {
 	if (this->loadFactor() >= 1) {
-		if (_resStrategy == ResizeStrategy::Multiplicative)
+		if (__resize == ResizeStrategy::Multiplicative)
 			reserve(_capacity * _coef);
-		if (_resStrategy == ResizeStrategy::Additive)
+		if (__resize == ResizeStrategy::Additive)
 			reserve(_capacity + _coef);
 	}
 }
