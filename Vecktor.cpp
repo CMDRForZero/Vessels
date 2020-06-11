@@ -1,303 +1,306 @@
-#include <iostream>
-#include <algorithm>
+#include "LinkedList.h"
 #include <cassert>
-#include <cstring>
-#include "Vecktor.h"
+#include <cstddef>
 
 using namespace std;
 
-MyVector::MyVector(size_t size, ResizeStrategy resizeStrategy, float coef)
+// Конструктор узла для начала создания списка и создания новых узлов 
+// принимаем значение и записываем его в узел, указатель узла содержить нулевой указатель
+// конец списка определяется узлом nullptr
+
+LinkedList::Node::Node(const ValueType& value, Node* next)
 {
-	_size = size;
-	_coef = coef;
-	_resize = resizeStrategy;
-	_capacity = sizeof(ValueType);
-	_data = new ValueType[_capacity];
+	this->value = value;
+	this->next = next;
 }
 
-MyVector::MyVector(size_t size, ValueType value, ResizeStrategy resizeStrategy, float coef)
+LinkedList::Node::~Node()
 {
-	_size = size;
-	_coef = coef;
-	__resize = resizeStrategy;
-	_capacity = sizeof(ValueType);
-	_data = new ValueType[_capacity];
-	for (size_t i = 0; i < size; ++i) {
-		_data[i] = value;
+	// ничего не удаляем, т.к. агрегация
+}
+
+
+void LinkedList::Node::insertNext(const ValueType& value)
+{
+	Node* newNode = new Node(value, this->next);
+	this->next = newNode;
+}
+
+void LinkedList::Node::removeNext()
+{
+	Node* remNext = this->next;
+	Node* newNext = remNext->next;
+	delete remNext;
+	this->next = newNext;
+}
+
+////////////////////////////////////
+
+// Дефолтный конструктор
+LinkedList::LinkedList() 
+{
+	_head = nullptr;
+	_size = 0;
+}
+
+// Правило пяти												
+// Конструктор копирования
+LinkedList::LinkedList(const LinkedList& copyList)
+{
+	this->_size = copyList._size;
+	if (this->_size == 0) {
+		_head = nullptr;
+		return;
 	}
+
+	this->_head = new Node(copyList._head->value);
+
+	Node* currentNode = this->_head;
+	Node* currentCopyNode = copyList._head;
+
+	while (currentCopyNode->next) {
+		currentNode->next = new Node(currentCopyNode->value);
+		currentCopyNode = currentCopyNode->next;
+		currentNode = currentNode->next;
+	}
+
 }
 
-MyVector::MyVector(const MyVector& copy)
+// Оператор присваивания копированием						 
+LinkedList& LinkedList::operator=(const LinkedList& copyList)
 {
-	_size = copy._size;
-	_coef = copy._coef;
-	__resize = copy.__resize;
-	_capacity = copy._capacity;
-	_data = new ValueType[_capacity];
-	memcpy(this->_data, copy._data, this->_size * sizeof(ValueType));
-}
+	//Ето проверка на самоприсваивание
+	if (this == &copyList) {
+		return *this;
+	}
 
-MyVector& MyVector::operator=(const MyVector& copy)
-{
-	if (this == &copy) return *this;
-
-	ValueType* tempData = new ValueType[copy._capacity];
-	memcpy(tempData, copy._data, copy._size * sizeof(ValueType));
-	delete[] this->_data;
-
-	_data = tempData;
-	_size = copy._size;
-	_coef = copy._coef;
-	__resize = copy.__resizey;
-	_capacity = copy._capacity;
+	LinkedList buffer(copyList);
+	this->_size = buffer._size;
+	this->_head = buffer._head;
 
 	return *this;
 }
 
-MyVector::MyVector(MyVector&& moveVector) noexcept
+// Конструктор перемещения
+LinkedList::LinkedList(LinkedList&& moveList) noexcept
 {
-	_size = moveVector._size;
-	_coef = moveVector._coef;
-	__resize = moveVector.__resize;
-	_capacity = moveVector._capacity;
-	_data = new ValueType[_capacity];
-	memcpy(this->_data, moveVector._data, this->_size * sizeof(ValueType));
+	this->_size = moveList._size;
+	this->_head = moveList._head;
 
-	moveVector._size = 0;
-	moveVector._capacity = 0;
-	moveVector._coef = 0;
-	moveVector._data = nullptr;
+	moveList._size = 0;
+	moveList._head = nullptr;
 }
 
-MyVector& MyVector::operator=(MyVector&& moveVector) noexcept
+//Оператор присваивания перемещением
+LinkedList& LinkedList::operator=(LinkedList&& moveList) noexcept
 {
-	if (this == &moveVector) return *this;
-
-	delete[] this->_data;
-
-	_data = moveVector._data;
-	_size = moveVector._size;
-	_coef = moveVector._coef;
-	__resize = moveVector.__resize;
-	_capacity = moveVector._capacity;
-
-	moveVector._size = 0;
-	moveVector._capacity = 0;
-	moveVector._coef = 0;
-	moveVector._data = nullptr;
-}
-
-MyVector::~MyVector()
-{
-	delete[] this->_data;
-}
-
-
-
-
-size_t MyVector::capacity() const
-{
-	return _capacity;
-}
-
-size_t MyVector::size() const
-{
-	return _size;
-}
-
-float MyVector::loadFactor()
-{
-	return (float)_size / (float)_capacity;
-}
-
-void MyVector::reserve(const size_t capacity)
-{
-	if (capacity < _capacity) return;
-
-	if (_data == nullptr) {
-		_data = new ValueType[capacity];
+	if (this == &moveList) {
+		return *this;
 	}
-	else {
-		ValueType* temp = _data;
-		_data = new ValueType[capacity];
-		memcpy(_data, temp, _size * sizeof(ValueType));
-		delete temp;
-	}
+
+	forceNodeDelete(_head);
+	this->_size = moveList._size;
+	this->_head = moveList._head;
+
+	moveList._size = 0;
+	moveList._head = nullptr;
+
+	return *this;
 }
 
-void MyVector::strategyReserve()
+LinkedList::~LinkedList()
 {
-	if (this->loadFactor() >= 1) {
-		if (__resize == ResizeStrategy::Multiplicative)
-			reserve(_capacity * _coef);
-		if (__resize == ResizeStrategy::Additive)
-			reserve(_capacity + _coef);
-	}
+	forceNodeDelete(_head);
 }
 
-ValueType& MyVector::operator[](const size_t i) const
-{
-	if (i < 0 or i > _size) {
-		assert(i < 0 or i > _size);
-	}
-	return _data[i];
-}
+//////////////////////////////
 
-void MyVector::pushBack(const ValueType& value)
+void LinkedList::forceNodeDelete(Node* node)
 {
-	if (_size == 0) {
-		_data[_size] = value;
-	}
-	else if (this->loadFactor() <= 1) {
-		_data[_size + 1] = value;
-	}
-	else {
-		this->reserve(_size + 1);
-		_data[_size + 1] = value;
-	}
-	_size++;
-}
-
-void MyVector::insert(const size_t i, const ValueType& value)
-{
-	if (i <= _capacity) {
-		_data[i] = value;
+	if (node == nullptr) {
 		return;
 	}
 
-	if (i == _size) {
-		pushBack(value);
-		return;
+	Node* nextDeleteNode = node->next;
+	delete node;
+	forceNodeDelete(nextDeleteNode);
+}
+
+// доступ к значению элемента по индексу
+ValueType& LinkedList::operator[](const size_t pos) const
+{
+	return getNode(pos)->value;
+}
+
+LinkedList::Node* LinkedList::getNode(const size_t pos) const
+{
+	if (pos < 0) {
+		assert(pos < 0);
+	}
+	else if (pos >= this->_size) {
+		assert(pos >= this->size);
 	}
 
-	this->strategyReserve();
+	Node* gettingNode = this->_head;
+	for (size_t i = 0; i < pos; ++i) {
+		gettingNode = gettingNode->next;
+	}
 
-	size_t oldCap = _capacity;
-	if (i > _capacity) {
-		while (_capacity < i) {
-			_capacity = (float)_capacity * _coef;
+	return gettingNode;
+}
+
+
+void LinkedList::insert(const size_t pos, const ValueType& value)
+{
+	if (pos < 0) {
+		assert(pos < 0);
+	}
+	else if (pos > this->_size) {
+		assert(pos > this->_size);
+	}
+
+	if (pos == 0) {
+		pushFront(value);
+	}
+	else {
+		Node* bufNode = this->_head;
+		for (size_t i = 0; i < pos - 1; ++i) {
+			bufNode = bufNode->next;
 		}
-		ValueType* buff = new ValueType[oldCap];
-		memcpy(buff, _data, _size * oldCap);
-		buff = _data;
-
-		delete[] _data;
-		_data = new ValueType[_capacity];
-		memcpy(_data, buff, _capacity);
-		_data[i] = value;
+		bufNode->insertNext(value);
 		++_size;
 	}
 }
 
-void MyVector::insert(const size_t i, const MyVector& value)
+void LinkedList::insertAfterNode(Node* node, const ValueType& value)
 {
-	if (value._size + this->_size < this->_capacity && i < this->_capacity) {
-		for (size_t k = 0; k < value._size; ++k) {
-			_data[k + i] = value._data[k];
-		}
+	node->insertNext(value);
+}
+
+void LinkedList::pushBack(const ValueType& value)
+{
+	if (_size == 0) {
+		pushFront(value);
+		return;
+	}
+	insert(_size, value);
+}
+
+void LinkedList::pushFront(const ValueType& value)
+{
+	_head = new Node(value, _head);
+	++_size;
+}
+
+
+// Удаление
+void LinkedList::remove(const size_t pos)
+{
+	if (pos == 0) {
+		removeFront();
 	}
 	else {
-		this->reserve(_capacity * _coef);
-		for (size_t k = _size + value._size; k > i + value._size; k--)
-		{
-			this->_data[k] = this->_data[k - value._size];
+		Node* bufNode = this->_head;
+		for (size_t i = 0; i < pos - 1; ++i) {
+			bufNode = bufNode->next;
 		}
-		for (size_t k = i; k < i + value._size; k++)
-		{
-			this->_data[k] = value._data[k - i];
-		}
+		Node* removeNode = bufNode->next;
+		bufNode->next = removeNode->next;
+		delete removeNode;
+		_size--;
 	}
-	_size += value._size;
 }
 
-void MyVector::popBack()
+void LinkedList::removeNextNode(Node* node)
 {
-	if (_data == nullptr)
+	if (node->next == nullptr) {
 		return;
-	_data[_size - 1] = 0;
-	--_size;
-}
-
-void MyVector::erase(const size_t i)
-{
-	if (this->_data == nullptr)
-		return;
-
-	if (i == _size) {
-		this->popBack();
 	}
 	else {
-		for (size_t j = i; j < _size - 1; j++) {
-			_data[j] = _data[j + 1];
-		}
-		--_size;
+		node->removeNext();
 	}
 }
 
-void MyVector::erase(const size_t i, const size_t len)
+void LinkedList::removeFront()
 {
-	if (i and len > _size or i and len < _size) {
-		return;
-	}
+	Node* removeNode = this->_head;
+	this->_head = _head->next;
 
-	for (size_t k = i; k < size() - len; k++)
-	{
-		this->_data[k] = this->_data[k + len];
-	}
-	_size += -len;
+	delete removeNode;
+	_size--;
 }
 
-long long int MyVector::find(const ValueType& value, bool isBegin) const
+void LinkedList::removeBack()
 {
-	if (_size == 0)
-		return -1;
-
-	if (isBegin == true)
-	{
-		for (size_t i = 0; i < _size; ++i)
-		{
-			if (this->_data[i] == value)
-				return  i;
-		}
-	}
-	else
-	{
-		for (size_t i = _size - 1; i >= 0; --i)
-		{
-			if (this->_data[i] == value)
-				return i;
-		}
-
-	}
-	return -1;
+	remove(_size - 1);
 }
 
-void MyVector::resize(const size_t size, const ValueType value)
+size_t LinkedList::size() const
 {
-	if (size > _capacity)
-	{
-		reserve(size);
-		for (size_t i = _size; i < size; i++)
-		{
-			_data[i] = value;
-		}
-		_size = size;
-	}
-
-	if (size == _capacity)
-		return;
-
-	if (size < _capacity)
-	{
-		reserve(size);
-		_size = size;
-	}
-	return;
+	return _size;
 }
 
-void MyVector::clear()
+long long int LinkedList::findIndex(const ValueType& value) const
 {
-	delete[] _data;
-	_data = nullptr;
-	_size = 0;
+	Node* bufNode = this->_head;
+	bool flag = 0;
+	for (int i = 0; i < _size; ++i) {
+		if (bufNode->value == value) {
+			flag = 1;
+			return i;
+		}
+		else bufNode = bufNode->next;
+	}
+
+	if (flag == 0) return -1;
+}
+
+LinkedList::Node* LinkedList::findNode(const ValueType& value) const
+{
+	Node* bufNode = this->_head;
+	bool flag = 0;
+	for (size_t i = 0; i < _size; ++i)
+	{
+		if (value == bufNode->value) {
+			flag = 1;
+			return bufNode;
+		}
+		else {
+			bufNode = bufNode->next;
+		}
+	}
+
+	if (flag == 0) return nullptr;
+}
+
+// разворот списка
+
+void LinkedList::reverse()
+{
+	Node* reverseNode = nullptr;
+
+	while (this->_head != nullptr)
+	{
+		Node* temp = _head->next;
+		_head->next = reverseNode;
+		reverseNode = _head;
+		_head = temp;
+	}
+	_head = reverseNode;
+}
+
+LinkedList LinkedList::reverse() const
+{
+	LinkedList reversed = (*this);
+	reversed.reverse();
+
+	return reversed;
+}
+
+LinkedList LinkedList::getReverseList() const
+{
+	LinkedList reversed = (*this);
+	reversed.reverse();
+
+	return reversed;
 }
