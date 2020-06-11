@@ -1,90 +1,71 @@
 #pragma once
 
-// стратегия изменения capacity
-enum class ResizeStrategy {
-	Additive,
-	Multiplicative
-};
-
-// тип значений в векторе
-// потом будет заменен на шаблон
+// потом поменяем на шаблоны
 using ValueType = double;
 
-class MyVector
+class LinkedList
 {
-public:
-	MyVector(size_t size = 0, ResizeStrategy = ResizeStrategy::Multiplicative, float coef = 1.5f);
-	MyVector(size_t size, ValueType value, ResizeStrategy = ResizeStrategy::Multiplicative, float coef = 1.5f);
+	// класс узла списка
+	// по своей сути, может содержать любые данные,
+	// можно реализовать и ассоциативный массив, просто добавив 
+	// поле с ключем в узел и, с учетом этого, поменять методы LinkedList 
+	// (доступ по ключу, поиск по ключу и т.д.)
+	struct Node {
+		Node(const ValueType& value, Node* next = nullptr);
+		~Node();
 
-	MyVector(const MyVector& copy);
-	MyVector& operator=(const MyVector& copy);
+		void insertNext(const ValueType& value);
+		void removeNext();
 
-	MyVector(MyVector&& moveVector) noexcept;
-	MyVector& operator=(MyVector&& moveVector) noexcept;
-
-	~MyVector();
-
-	// для умненьких — реализовать конструктор и оператор для перемещения
-
-	size_t capacity() const;
-	size_t size() const;
-	float loadFactor();
-
-	// доступ к элементу, 
-	// должен работать за O(1)
-	ValueType& operator[](const size_t i) const;
-
-	// добавить в конец,
-	// должен работать за amort(O(1))
-	void pushBack(const ValueType& value);
-	// вставить,
-	// должен работать за O(n)
-	void insert(const size_t i, const ValueType& value);	// версия для одного значения
-	void insert(const size_t i, const MyVector& value);		// версия для вектора
-
-	// удалить с конца,
-	// должен работать за amort(O(1))
-	void popBack();
-	// удалить
-	// должен работать за O(n)
-	void erase(const size_t i);
-	void erase(const size_t i, const size_t len);			// удалить len элементов начиная с i
-
-	// найти элемент,
-	// должен работать за O(n)
-	// если isBegin == true, найти индекс первого элемента, равного value, иначе последнего
-	// если искомого элемента нет, вернуть -1
-	long long int find(const ValueType& value, bool isBegin = true) const;
-
-	// зарезервировать память (принудительно задать capacity)
-	void reserve(const size_t capacity);
-
-	void strategyReserve();
-
-	// изменить размер
-	// если новый размер больше текущего, то новые элементы забиваются дефолтными значениями
-	// если меньше - обрезаем вектор
-	void resize(const size_t size, const ValueType = 0.0);
-
-	// очистка вектора, без изменения capacity
-	void clear();
-
-	class Iterator {
-	public:
-		Iterator(ValueType* pointer) : ptr(pointer) {};
-	private:
-		ValueType* ptr;
+		ValueType value;
+		Node* next;
 	};
 
-	Iterator begin() { return this->_data; };
-	Iterator end() { return this->_data + this->_size; };
+public:
+	////
+	LinkedList(); // Дефолтный конструктор, head 
+	LinkedList(const LinkedList& copyList); // Конструктор копирования
+	LinkedList& operator=(const LinkedList& copyList); // Оператор присваивания копированием
 
+	LinkedList(LinkedList&& moveList) noexcept; // Конструктор перемещения
+	LinkedList& operator=(LinkedList&& moveList) noexcept; // Оператор присваивания перемещением
 
+	~LinkedList();
+	////
+
+	// доступ к значению элемента по индексу
+	ValueType& operator[](const size_t pos) const;
+	// доступ к узлу по индексу
+	LinkedList::Node* getNode(const size_t pos) const;
+	
+	// вставка элемента по индексу, сначала ищем, куда вставлять (О(n)), потом вставляем (O(1))
+	void insert(const size_t pos, const ValueType& value);
+	// вставка элемента после узла, (O(1))
+	static void insertAfterNode(Node* node, const ValueType& value);
+	// вставка в конец (О(n))
+	void pushBack(const ValueType& value);
+	// вставка в начало (О(1))
+	void pushFront(const ValueType& value);
+
+	// удаление
+	void remove(const size_t pos);
+	void removeNextNode(Node* node);
+	void removeFront();
+	void removeBack();
+	
+	// поиск, О(n)
+	long long int findIndex(const ValueType& value) const;
+	Node* findNode(const ValueType& value) const;
+
+	// разворот списка
+	void reverse();						// изменение текущего списка
+	LinkedList reverse() const;			// полчение нового списка (для константных объектов)
+	LinkedList getReverseList() const;	// чтобы неконстантный объект тоже мог возвращать новый развернутый список
+
+	size_t size() const;
 private:
-	ValueType* _data;
-	size_t _size;
-	size_t _capacity;
-	float _coef;
-	ResizeStrategy _resize;
+	Node*	_head;
+	size_t	_size;
 
+	void forceNodeDelete(Node* node);
 };
